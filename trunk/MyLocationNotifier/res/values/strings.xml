@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Hello World, MyLocationNotifierActivity!</string>
+    <string name="app_name">MyLocationNotifier</string>
+    <string name="startLocationNotifierService">Start Location Notifier</string>
+    <string name="stopLocationNotifierService">Stop Location Notifier</string>
+</resources>
