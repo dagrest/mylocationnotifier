@@ -1,5 +1,7 @@
 package net.dagrest.mylocationnotifier;
 
+import java.util.List;
+
 import net.dagrest.mylocationnotifier.log.LogManager;
 
 import android.app.Activity;
@@ -11,12 +13,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.location.Criteria;
+import android.location.GpsStatus;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.telephony.TelephonyManager;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,7 +35,7 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 //	private ConnectivityManager connectivityManager;
 //	private TelephonyManager telephonyManager;
 	private TextView noteText;
-	private Button btnToggleNotificationService;
+	private ImageView btnToggleNotificationService;
 	private LocationServices locationServices;
 	private String deviceUid;
 	private SharedPreferences sharedPreferences;
@@ -80,6 +85,10 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
     public void onDestroy() {
     	super.onDestroy();
         LogManager.LogFunctionCall("MyLocationNotifierActivity", "onDestroy()");
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onDestroy()", "***************************");
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onDestroy()", "*** MyLocationNotifier ****");
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onDestroy()", "********** ENDED **********");
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onDestroy()", "***************************");
         LogManager.LogFunctionExit("MyLocationNotifierActivity", "onDestroy()");
     }
     
@@ -89,6 +98,11 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 
         LogManager.LogFunctionCall("MyLocationNotifierActivity", "onCreate()");
 
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onCreate()", "***************************");
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onCreate()", "*** MyLocationNotifier ****");
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onCreate()", "********* STARTED *********");
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onCreate()", "***************************");
+        
         context = this;
         staticContext = this;
         
@@ -109,8 +123,15 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
         // 						true  - service is ON
         preferences.setBoooleanSettingsValue("isNotifierStarted", false);
         preferences.setStringSettingsValue("deviceUid", deviceUid);
+        
         preferences.setStringSettingsValue("locationString", "initial");
+        preferences.setStringSettingsValue("locationStringNetwork", "initial");
+
+        preferences.setStringSettingsValue("locationStringGPS", "initial");
+        preferences.setStringSettingsValue("locationStringNETWORK", "initial");
+
         preferences.setBoooleanSettingsValue("isLocationProviderAvailable", false);
+        preferences.setStringSettingsValue("locationProviderName", "NONE");
 
         String locationString = null;
         locationString = preferences.getStringSettingsValue("locationString", locationString);
@@ -133,18 +154,23 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 //		 am.set(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), mAlarmSender);
 
         
-        btnToggleNotificationService = (Button) findViewById(R.id.btnToggleService);
+        btnToggleNotificationService = (ImageView) findViewById(R.id.btnToggleService);
         // Register the onClick listener 
         btnToggleNotificationService.setOnClickListener(mBtnToggleServiceListener);
         //btnToggleNotificationService.setTextColor(Color.BLACK);
+		btnToggleNotificationService.setImageResource(R.drawable.start);
 
 		if(isMyServiceRunning() == true){
-			btnToggleNotificationService.setText(getString(R.string.stopLocationNotifierService));
-			btnToggleNotificationService.setTextColor(Color.RED);
+			//btnToggleNotificationService.setText(getString(R.string.stopLocationNotifierService));
+			//btnToggleNotificationService.setTextColor(Color.RED);
+			btnToggleNotificationService.setImageResource(R.drawable.stop);
+
 	        preferences.setBoooleanSettingsValue("isNotifierStarted", true);
 		} else {
-			btnToggleNotificationService.setText(getString(R.string.startLocationNotifierService));
-			btnToggleNotificationService.setTextColor(Color.BLACK);
+			//btnToggleNotificationService.setText(getString(R.string.startLocationNotifierService));
+			//btnToggleNotificationService.setTextColor(Color.BLACK);
+			btnToggleNotificationService.setImageResource(R.drawable.start);
+
 	        preferences.setBoooleanSettingsValue("isNotifierStarted", false);
 		}
 		noteText.setText("isNotifierStarted: " + Boolean.toString(preferences.getBooleanSettingsValue("isNotifierStarted")));
@@ -170,8 +196,9 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 			noteText.setText("isNotifierStarted: " + Boolean.toString(!isNotifierStarted));
 			
 			if(isNotifierStarted == true){
-				btnToggleNotificationService.setText(getString(R.string.startLocationNotifierService));
-				btnToggleNotificationService.setTextColor(Color.BLACK);
+				//btnToggleNotificationService.setText(getString(R.string.startLocationNotifierService));
+				//btnToggleNotificationService.setTextColor(Color.BLACK);
+				btnToggleNotificationService.setImageResource(R.drawable.start);
 
 //				LogManager.LogInfoMsg("MyLocationNotifierActivity", "OnClickListener()", "Broadcasting cancel...");
 //				System.out.println("Broadcasting cancel...");
@@ -186,9 +213,10 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 				Toast.makeText(context, "Location notifier service STOPPED.", Toast.LENGTH_SHORT).show();
 
 			} else {
-				btnToggleNotificationService.setText(getString(R.string.stopLocationNotifierService));
-				btnToggleNotificationService.setTextColor(Color.RED);
-
+				//btnToggleNotificationService.setText(getString(R.string.stopLocationNotifierService));
+				//btnToggleNotificationService.setTextColor(Color.RED);
+				btnToggleNotificationService.setImageResource(R.drawable.stop);
+				
 //				Boolean status = LocationNotifierService.startLocationNotifierService(context);
 //				System.out.println("DEBUG ONLY status ===================> " + status);
 

@@ -2,12 +2,10 @@ package net.dagrest.mylocationnotifier;
 
 import java.util.Calendar;
 import java.util.List;
-import java.util.Timer;
 
 import net.dagrest.gmailsender.GMailSender;
 import net.dagrest.mylocationnotifier.log.LogManager;
 
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -17,7 +15,6 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 
 public class LocationNotifierService extends Service {
 
@@ -30,6 +27,9 @@ public class LocationNotifierService extends Service {
     private LocationManager locationManager;
 	private List<String> locationProviders;
 	private Boolean isLocationProviderAvailable;
+	float accuracy;
+	float speed;
+	String locationProvider;
 
 	
     @Override
@@ -44,22 +44,24 @@ public class LocationNotifierService extends Service {
     {                  
     	super.onCreate();
         LogManager.LogFunctionCall("LocationNotifierService", "onCreate()");
-    	context = MyLocationNotifierActivity.getContext();
-        sharedPreferences = context.getSharedPreferences(PREFS_NAME, 0);
-        preferences = new Preferences(sharedPreferences);
-        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if(context == null){
+        	context = MyLocationNotifierActivity.getContext();
+        }
+        if(sharedPreferences == null){
+            sharedPreferences = context.getSharedPreferences(PREFS_NAME, 0);
+        }
+        if(preferences == null){
+            preferences = new Preferences(sharedPreferences);
+        }
+        if(locationManager == null){
+        	locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        }
         LogManager.LogFunctionExit("LocationNotifierService", "onCreate()");
     }                    
     
-	public void sendLocationByMail(String strLocation) { 
+	public void sendLocationByMail(String strLocation, String provider) { 
         LogManager.LogFunctionCall("LocationNotifierService", "sendLocationByMail()");
 
-//		long millis = System.currentTimeMillis() - startTime;
-//		int seconds = (int) (millis / 1000);
-//		int minutes = seconds / 60;
-//		seconds     = seconds % 60;
-//		timeLabel.setText(String.format("%d:%02d", minutes, seconds));
-        
 //        sharedPreferences = context.getSharedPreferences(PREFS_NAME, 0);
 //        preferences = new Preferences(sharedPreferences);
 		//String strLocation = preferences.getStringSettingsValue("locationString", location);
@@ -88,14 +90,22 @@ public class LocationNotifierService extends Service {
         	deviceUid = "David";
         }
 		if(testStr != null){
-	        LogManager.LogInfoMsg("LocationNotifierService", "sendLocationByMail()", "Current time: " + curTime + " Location: " + testStr);
+	        LogManager.LogInfoMsg("LocationNotifierService", "GMailSender()", "Location: " + testStr);
 			
 	        try {   
                 GMailSender sender = new GMailSender(senderMail, password);
 	            sender.sendMail(curTime + " - My Location Notifier",   
-	                    "http://maps.google.com/maps?q=" + testStr + "&iwloc=A&hl=en   DeviceID:" + deviceUid,   
+	                    "http://maps.google.com/maps?q=" + testStr + "&iwloc=A&hl=en \nDeviceID:" + 
+	                    	deviceUid + "\nProvider: " + locationProvider + "\nAccuracy[meters]: " + accuracy +
+	                    	"\nSpeed[meters/sec]:" + speed,
 	                    senderMail,   
 	                    recipientMail);   
+
+	            preferences.setStringSettingsValue("locationString", "initial");
+	            preferences.setStringSettingsValue("locationStringNetwork", "initial");
+	            preferences.setStringSettingsValue("locationStringGPS", "initial");
+	            preferences.setStringSettingsValue("locationStringNETWORK", "initial");
+
 	        } catch (Exception e) {   
 	            LogManager.LogInfoMsg("LocationNotifierService", "sendLocationByMail()", "SendMail EXCEPTION: " + e.getMessage());
 	            LogManager.LogException(e, "LocationNotifierService", "sendLocationByMail()");
@@ -105,22 +115,31 @@ public class LocationNotifierService extends Service {
 	}
     
 	// Define a listener that responds to location updates
-	LocationListener locationListener = new LocationListener() {
+	LocationListener locationListenerGPS = new LocationListener() {
 	    public void onLocationChanged(Location location) {
 
 	    	LogManager.LogFunctionCall("LocationListener", "onLocationChanged()");
-	
+
+	    	preferences.setStringSettingsValue("locationProviderName", "GPS");
+
+	    	double latitude = 0, longitude = 0;
+	    	latitude = location.getLatitude();
+	    	longitude = location.getLongitude();
+	    	if(latitude == 0 || longitude == 0){
+	    		return;
+	    	}
+	    	accuracy = location.getAccuracy();
+	    	locationProvider = location.getProvider();
+	    	speed = location.getSpeed();
+
+	    	preferences.setStringSettingsValue("locationProviderName", locationProvider);
+	    	
 			//sets latitude/longitude when a location is provided
 			latlong = location.getLatitude() + "," + location.getLongitude();
 			
-			
-	        Calendar c = Calendar.getInstance();  
-	        int hours = c.get(Calendar.HOUR_OF_DAY);
-	        int minutes = c.get(Calendar.MINUTE);
-	        int seconds = c.get(Calendar.SECOND);
-	        String curTime = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-	        LogManager.LogInfoMsg("LocationListener", "onLocationChanged()", "@@@Time: " + curTime + " = " + latlong);
+	        LogManager.LogInfoMsg("LocationListener", "onLocationChanged()", "@@@NEW_LOCATION_GPS: " + latlong);
 	        preferences.setStringSettingsValue("locationString", latlong);
+	        preferences.setStringSettingsValue("locationStringGPS", latlong);
         
 	        //sendLocationByMail(latlong);
 
@@ -134,7 +153,46 @@ public class LocationNotifierService extends Service {
 	    public void onProviderDisabled(String provider) {}
 	  };
 
-    @Override          
+	// Define a listener that responds to location updates
+	LocationListener locationListenerNetwork = new LocationListener() {
+	    public void onLocationChanged(Location location) {
+
+	    	LogManager.LogFunctionCall("locationListenerNetwork", "onLocationChanged()");
+	    	
+	    	preferences.setStringSettingsValue("locationProviderName", "NETWORK");
+	    	
+	    	double latitude = 0, longitude = 0;
+	    	latitude = location.getLatitude();
+	    	longitude = location.getLongitude();
+	    	if(latitude == 0 || longitude == 0){
+	    		return;
+	    	}
+	    	accuracy = location.getAccuracy();
+	    	locationProvider = location.getProvider();
+	    	speed = location.getSpeed();
+	    	
+	    	preferences.setStringSettingsValue("locationProviderName", locationProvider);
+
+	    	//sets latitude/longitude when a location is provided
+			latlong = location.getLatitude() + "," + location.getLongitude();
+			
+	        LogManager.LogInfoMsg("locationListenerNetwork", "onLocationChanged()", "@@@NEW_LOCATION_NETWORK: " + latlong);
+	        preferences.setStringSettingsValue("locationStringNetwork", latlong);
+	        preferences.setStringSettingsValue("locationStringNETWORK", latlong);
+       
+	        //sendLocationByMail(latlong);
+
+	        LogManager.LogFunctionExit("locationListenerNetwork", "onLocationChanged()");
+	    }
+
+	    public void onStatusChanged(String provider, int status, Bundle extras) {}
+
+	    public void onProviderEnabled(String provider) {}
+
+	    public void onProviderDisabled(String provider) {}
+	  };
+
+	@Override          
     public void onStart(Intent intent, int startId)           
     {                  
     	super.onStart(intent, startId);
@@ -143,12 +201,25 @@ public class LocationNotifierService extends Service {
         
         //locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,0,0, locationListener);
         requestLocation(true);
+        String locationProviderName = null;
         isLocationProviderAvailable = preferences.getBooleanSettingsValue("isLocationProviderAvailable");
         if(isLocationProviderAvailable){
 	        String locationString = null;
+	        String locationStringNetwork = null;
+	        String locationStringGPS = null;
+	        String locationStringNETWORK = null;
+	        
 	        locationString = preferences.getStringSettingsValue("locationString", locationString);
-	        if(!locationString.equals("initial")){
-	        	sendLocationByMail(locationString);
+	        locationStringNetwork = preferences.getStringSettingsValue("locationStringNetwork", locationStringNetwork);
+
+        	locationProviderName = preferences.getStringSettingsValue("locationProviderName", locationProviderName);
+
+        	if(!locationString.equals("initial")){
+	        	LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "locationGPS: " + locationString);
+	        	sendLocationByMail(locationString, locationProvider);
+	        } else if(!locationStringNetwork.equals("initial")){
+	        	LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "locationNETWORK: " + locationStringNetwork);
+	        	sendLocationByMail(locationStringNetwork, locationProvider);
 	        }
         }
         
@@ -164,7 +235,8 @@ public class LocationNotifierService extends Service {
 
         //LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 		if(locationManager != null){
-			locationManager.removeUpdates(locationListener);
+			locationManager.removeUpdates(locationListenerGPS);
+			locationManager.removeUpdates(locationListenerNetwork);
 		}
     	
         LogManager.LogFunctionExit("LocationNotifierService", "onDestroy()");
@@ -177,25 +249,30 @@ public class LocationNotifierService extends Service {
 		return true;
 	}
 
-	private void requestLocation(boolean forceNetwork) {
+	private void requestLocation(boolean forceGps) {
         LogManager.LogFunctionCall("LocationNotifierService", "requestLocation()");
-		locationManager.removeUpdates(locationListener);
+		locationManager.removeUpdates(locationListenerGPS);
 		locationProviders = locationManager.getProviders(true);
+		LogManager.LogInfoMsg("LocationNotifierService", "requestLocation()", "Providers list: " + locationProviders.toString());
 
 		if (providerAvailable(locationProviders)) {
-			boolean containsGPS = locationProviders
-					.contains(LocationManager.GPS_PROVIDER);
-			boolean containsNetwork = locationProviders
-					.contains(LocationManager.NETWORK_PROVIDER);
+			boolean containsGPS = locationProviders.contains(LocationManager.GPS_PROVIDER);
+			LogManager.LogInfoMsg("LocationNotifierService", "requestLocation()", "containsGPS: " + containsGPS);
 
-			if ((containsGPS && !forceNetwork) || (containsGPS && !containsNetwork)) {
+			boolean containsNetwork = locationProviders.contains(LocationManager.NETWORK_PROVIDER);
+			LogManager.LogInfoMsg("LocationNotifierService", "requestLocation()", "containsNetwork: " + containsNetwork);
+
+			if (containsGPS && forceGps) {
 		        LogManager.LogInfoMsg("LocationNotifierService", "requestLocation()", "GPS_PROVIDER selected.");
-				locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+				locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 100, 0, locationListenerGPS);
+				locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 100, 0, locationListenerNetwork);
 		        preferences.setBoooleanSettingsValue("isLocationProviderAvailable", true);
+		        //preferences.setStringSettingsValue("locationProviderName", "GPS");
 			} else if (containsNetwork) {
 		        LogManager.LogInfoMsg("LocationNotifierService", "requestLocation()", "NETWORK_PROVIDER selected.");
-				locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0, locationListener);
+				locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 100, 0, locationListenerNetwork);
 		        preferences.setBoooleanSettingsValue("isLocationProviderAvailable", true);
+		        //preferences.setStringSettingsValue("locationProviderName", "NETWORK");
 			}
 		} else {
 	        LogManager.LogInfoMsg("LocationNotifierService", "requestLocation()", "No location providers available.");
