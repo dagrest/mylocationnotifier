@@ -97,7 +97,7 @@ public class LocationNotifierService extends Service {
 	            sender.sendMail(curTime + " - My Location Notifier",   
 	                    "http://maps.google.com/maps?q=" + testStr + "&iwloc=A&hl=en \nDeviceID:" + 
 	                    	deviceUid + "\nProvider: " + locationProvider + "\nAccuracy[meters]: " + accuracy +
-	                    	"\nSpeed[meters/sec]:" + speed,
+	                    	"\nSpeed[km/h]:" + (speed*3600/1000),
 	                    senderMail,   
 	                    recipientMail);   
 
