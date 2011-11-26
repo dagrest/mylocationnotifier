@@ -1,7 +1,5 @@
 package net.dagrest.mylocationnotifier;
 
-import java.util.List;
-
 import net.dagrest.mylocationnotifier.log.LogManager;
 
 import android.app.Activity;
@@ -12,10 +10,6 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
-import android.location.Criteria;
-import android.location.GpsStatus;
-import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.telephony.TelephonyManager;
@@ -36,7 +30,6 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 //	private TelephonyManager telephonyManager;
 	private TextView noteText;
 	private ImageView btnToggleNotificationService;
-	private LocationServices locationServices;
 	private String deviceUid;
 	private SharedPreferences sharedPreferences;
 	private Preferences preferences;
@@ -112,10 +105,8 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 
 		TelephonyManager tManager = (TelephonyManager)this.getSystemService(Context.TELEPHONY_SERVICE); 
         deviceUid = tManager.getDeviceId(); 
+        LogManager.LogInfoMsg("MyLocationNotifierActivity", "onCreate()", "deviceUid = " + deviceUid);
 
-        locationServices = new LocationServices();
-        locationServices.setContext(context, PREFS_NAME);
-        
         sharedPreferences = getSharedPreferences(PREFS_NAME, 0);
         preferences = new Preferences(sharedPreferences);
 
@@ -124,9 +115,6 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
         preferences.setBoooleanSettingsValue("isNotifierStarted", false);
         preferences.setStringSettingsValue("deviceUid", deviceUid);
         
-        preferences.setStringSettingsValue("locationString", "initial");
-        preferences.setStringSettingsValue("locationStringNetwork", "initial");
-
         preferences.setStringSettingsValue("locationStringGPS", "initial");
         preferences.setStringSettingsValue("locationStringNETWORK", "initial");
 
@@ -134,7 +122,7 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
         preferences.setStringSettingsValue("locationProviderName", "NONE");
 
         String locationString = null;
-        locationString = preferences.getStringSettingsValue("locationString", locationString);
+        locationString = preferences.getStringSettingsValue("locationStringGPS", locationString);
         
         svc = new Intent(MyLocationNotifierActivity.this, LocationNotifierService.class); 
         mAlarmSenderService = PendingIntent.getService(MyLocationNotifierActivity.this,                
