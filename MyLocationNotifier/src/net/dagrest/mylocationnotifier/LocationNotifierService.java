@@ -15,6 +15,7 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.PowerManager;
 
 public class LocationNotifierService extends Service {
 
@@ -27,9 +28,12 @@ public class LocationNotifierService extends Service {
     private LocationManager locationManager;
 	private List<String> locationProviders;
 	private Boolean isLocationProviderAvailable;
-	float accuracy;
-	float speed;
-	String locationProvider;
+	private float accuracy;
+	private float speed;
+	private String locationProvider;
+	private PowerManager.WakeLock wl;
+	private PowerManager pm;
+	private Boolean toReleaseWakeLock;
 
 	
     @Override
@@ -48,7 +52,7 @@ public class LocationNotifierService extends Service {
         	context = MyLocationNotifierActivity.getContext();
         }
         if(sharedPreferences == null){
-            sharedPreferences = context.getSharedPreferences(PREFS_NAME, 0);
+       		sharedPreferences = context.getSharedPreferences(PREFS_NAME, 0);
         }
         if(preferences == null){
             preferences = new Preferences(sharedPreferences);
@@ -56,16 +60,13 @@ public class LocationNotifierService extends Service {
         if(locationManager == null){
         	locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         }
+        toReleaseWakeLock = false;
         LogManager.LogFunctionExit("LocationNotifierService", "onCreate()");
     }                    
     
-	public void sendLocationByMail(String strLocation, String provider) { 
+	private void sendLocationByMail(String strLocation, String provider) { 
         LogManager.LogFunctionCall("LocationNotifierService", "sendLocationByMail()");
 
-//        sharedPreferences = context.getSharedPreferences(PREFS_NAME, 0);
-//        preferences = new Preferences(sharedPreferences);
-		//String strLocation = preferences.getStringSettingsValue("locationString", location);
-        
 		String testStr = strLocation;
 		String password = "2803notify"; 
 		String senderMail = "location.notifier@googlemail.com";
@@ -101,8 +102,6 @@ public class LocationNotifierService extends Service {
 	                    senderMail,   
 	                    recipientMail);   
 
-	            preferences.setStringSettingsValue("locationString", "initial");
-	            preferences.setStringSettingsValue("locationStringNetwork", "initial");
 	            preferences.setStringSettingsValue("locationStringGPS", "initial");
 	            preferences.setStringSettingsValue("locationStringNETWORK", "initial");
 
@@ -137,13 +136,20 @@ public class LocationNotifierService extends Service {
 			//sets latitude/longitude when a location is provided
 			latlong = location.getLatitude() + "," + location.getLongitude();
 			
-	        LogManager.LogInfoMsg("LocationListener", "onLocationChanged()", "@@@NEW_LOCATION_GPS: " + latlong);
-	        preferences.setStringSettingsValue("locationString", latlong);
+	        LogManager.LogInfoMsg("locationListenerGPS", "onLocationChanged()", "@@@NEW_LOCATION_GPS: " + latlong);
 	        preferences.setStringSettingsValue("locationStringGPS", latlong);
         
 	        //sendLocationByMail(latlong);
 
-	        LogManager.LogFunctionExit("LocationListener", "onLocationChanged()");
+	        LogManager.LogInfoMsg("locationListenerGPS", "onLocationChanged()", "WAKE LOCK - READY TO BE RELEASED.");
+	        toReleaseWakeLock = true;
+	        if(wl != null){
+	        	LogManager.LogInfoMsg("locationListenerGPS", "onLocationChanged()", "WAKE LOCK isHeld: " + wl.isHeld());
+//	        	wl.release();
+//		        LogManager.LogInfoMsg("locationListenerGPS", "onLocationChanged()", "WAKE LOCK - HAS BEEN RELEASED.");
+	        }
+	        
+	        LogManager.LogFunctionExit("locationListenerGPS", "onLocationChanged()");
 	    }
 
 	    public void onStatusChanged(String provider, int status, Bundle extras) {}
@@ -177,10 +183,11 @@ public class LocationNotifierService extends Service {
 			latlong = location.getLatitude() + "," + location.getLongitude();
 			
 	        LogManager.LogInfoMsg("locationListenerNetwork", "onLocationChanged()", "@@@NEW_LOCATION_NETWORK: " + latlong);
-	        preferences.setStringSettingsValue("locationStringNetwork", latlong);
 	        preferences.setStringSettingsValue("locationStringNETWORK", latlong);
        
-	        //sendLocationByMail(latlong);
+	        if(wl != null){
+	        	LogManager.LogInfoMsg("locationListenerNetwork", "onLocationChanged()", "WAKE LOCK isHeld: " + wl.isHeld());
+	        }
 
 	        LogManager.LogFunctionExit("locationListenerNetwork", "onLocationChanged()");
 	    }
@@ -199,27 +206,43 @@ public class LocationNotifierService extends Service {
     	
         LogManager.LogFunctionCall("LocationNotifierService", "onStart()");
         
+        pm = (PowerManager) getSystemService(Context.POWER_SERVICE); 
+        wl = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyLocationWake");
+        if(!wl.isHeld()){
+        	wl.acquire(); 
+            LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "WAKE LOCK - HAS BEEN ACUIRED.");
+        }
+        
+        if(toReleaseWakeLock){
+        	if(wl != null && wl.isHeld()){
+        		wl.release();
+        		LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "WAKE LOCK - HAS BEEN RELEASED.");
+                toReleaseWakeLock = false;
+        	}
+        }
+        
+        //wl.release();        
+        
         //locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,0,0, locationListener);
+        
         requestLocation(true);
         String locationProviderName = null;
         isLocationProviderAvailable = preferences.getBooleanSettingsValue("isLocationProviderAvailable");
         if(isLocationProviderAvailable){
-	        String locationString = null;
-	        String locationStringNetwork = null;
 	        String locationStringGPS = null;
 	        String locationStringNETWORK = null;
 	        
-	        locationString = preferences.getStringSettingsValue("locationString", locationString);
-	        locationStringNetwork = preferences.getStringSettingsValue("locationStringNetwork", locationStringNetwork);
+	        locationStringGPS = preferences.getStringSettingsValue("locationStringGPS", locationStringGPS);
+	        locationStringNETWORK = preferences.getStringSettingsValue("locationStringNETWORK", locationStringNETWORK);
 
         	locationProviderName = preferences.getStringSettingsValue("locationProviderName", locationProviderName);
 
-        	if(!locationString.equals("initial")){
-	        	LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "locationGPS: " + locationString);
-	        	sendLocationByMail(locationString, locationProvider);
-	        } else if(!locationStringNetwork.equals("initial")){
-	        	LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "locationNETWORK: " + locationStringNetwork);
-	        	sendLocationByMail(locationStringNetwork, locationProvider);
+        	if(!locationStringGPS.equals("initial")){
+	        	LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "locationGPS: " + locationStringGPS);
+	        	sendLocationByMail(locationStringGPS, locationProvider);
+	        } else if(!locationStringNETWORK.equals("initial")){
+	        	LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "locationNETWORK: " + locationStringNETWORK);
+	        	sendLocationByMail(locationStringNETWORK, locationProvider);
 	        }
         }
         
@@ -236,7 +259,13 @@ public class LocationNotifierService extends Service {
         //LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 		if(locationManager != null){
 			locationManager.removeUpdates(locationListenerGPS);
+			LogManager.LogInfoMsg("LocationNotifierService", "onDestroy", "locationListenerGPS - Updates removed");
 			locationManager.removeUpdates(locationListenerNetwork);
+			LogManager.LogInfoMsg("LocationNotifierService", "onDestroy", "locationListenerNetwork - Updates removed");
+		}
+		if(wl != null){
+			wl.release();
+			LogManager.LogInfoMsg("LocationNotifierService", "onDestroy", "WAKE LOCK - HAS BEEN REMOVED.");
 		}
     	
         LogManager.LogFunctionExit("LocationNotifierService", "onDestroy()");
@@ -252,6 +281,8 @@ public class LocationNotifierService extends Service {
 	private void requestLocation(boolean forceGps) {
         LogManager.LogFunctionCall("LocationNotifierService", "requestLocation()");
 		locationManager.removeUpdates(locationListenerGPS);
+		locationManager = null;
+		locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 		locationProviders = locationManager.getProviders(true);
 		LogManager.LogInfoMsg("LocationNotifierService", "requestLocation()", "Providers list: " + locationProviders.toString());
 
