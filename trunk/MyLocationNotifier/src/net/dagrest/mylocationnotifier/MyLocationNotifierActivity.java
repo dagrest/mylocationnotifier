@@ -1,6 +1,7 @@
 package net.dagrest.mylocationnotifier;
 
 import net.dagrest.mylocationnotifier.log.LogManager;
+import net.dagrest.utils.Utils;
 
 import android.app.Activity;
 import android.app.ActivityManager;
@@ -15,6 +16,8 @@ import android.os.SystemClock;
 import android.telephony.TelephonyManager;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.animation.Animation;
+import android.view.animation.ScaleAnimation;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -25,9 +28,6 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 
     public static final String PREFS_NAME = "MyPreferences";
 
-//  private Geocoder geocoder;
-//	private ConnectivityManager connectivityManager;
-//	private TelephonyManager telephonyManager;
 	private TextView noteText;
 	private ImageView btnToggleNotificationService;
 	private String deviceUid;
@@ -37,6 +37,7 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 	private Context context;
 	private static Context staticContext;
 	private PendingIntent mAlarmSenderService;
+	private ScaleAnimation mAnimation = null;
 	
 	public static Context getContext() {
 		return staticContext;
@@ -85,6 +86,21 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
         LogManager.LogFunctionExit("MyLocationNotifierActivity", "onDestroy()");
     }
     
+    private void initAnimation()
+    {
+    // Define animation
+            mAnimation = new ScaleAnimation(
+            0.9f, 1, 0.9f, 1, // From x, to x, from y, to y
+            ScaleAnimation.RELATIVE_TO_SELF, 0.5f,
+            ScaleAnimation.RELATIVE_TO_SELF, 0.5f);
+            mAnimation.setDuration(100);
+            mAnimation.setFillAfter(true); 
+            mAnimation.setStartOffset(0);
+            mAnimation.setRepeatCount(1);
+            mAnimation.setRepeatMode(Animation.REVERSE);
+
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -101,6 +117,8 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
         
         setContentView(R.layout.main);
 
+        initAnimation();
+        
 		noteText = (TextView) findViewById(R.id.mytext); // DEBUG ONLY 
 
 		TelephonyManager tManager = (TelephonyManager)this.getSystemService(Context.TELEPHONY_SERVICE); 
@@ -121,6 +139,8 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
         preferences.setBoooleanSettingsValue("isLocationProviderAvailable", false);
         preferences.setStringSettingsValue("locationProviderName", "NONE");
 
+        Utils.setSAPRaananaLocation(preferences);
+        
         String locationString = null;
         locationString = preferences.getStringSettingsValue("locationStringGPS", locationString);
         
@@ -128,49 +148,26 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
         mAlarmSenderService = PendingIntent.getService(MyLocationNotifierActivity.this,                
         	0, svc, 0);
 
-//		// get a Calendar object with current time
-//		 Calendar cal = Calendar.getInstance();
-//		 // add 5 minutes to the calendar object
-//		 cal.add(Calendar.MINUTE, 1);
-//		 Intent intent = new Intent(this, AlarmManagerReceiver.class);
-//		 intent.putExtra("alarm_message", "O'Doyle Rules!");
-//		 // In reality, you would want to have a static variable for the request code instead of 192837
-//		 mAlarmSender = PendingIntent.getBroadcast(this, 192837, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-//
-//		// Get the AlarmManager service
-//		 AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
-//		 am.set(AlarmManager.RTC_WAKEUP, cal.getTimeInMillis(), mAlarmSender);
-
-        
         btnToggleNotificationService = (ImageView) findViewById(R.id.btnToggleService);
         // Register the onClick listener 
         btnToggleNotificationService.setOnClickListener(mBtnToggleServiceListener);
-        //btnToggleNotificationService.setTextColor(Color.BLACK);
 		btnToggleNotificationService.setImageResource(R.drawable.start);
 
 		if(isMyServiceRunning() == true){
-			//btnToggleNotificationService.setText(getString(R.string.stopLocationNotifierService));
-			//btnToggleNotificationService.setTextColor(Color.RED);
+            // Animation
+			if (mAnimation != null)
+				btnToggleNotificationService.startAnimation(mAnimation);
 			btnToggleNotificationService.setImageResource(R.drawable.stop);
-
 	        preferences.setBoooleanSettingsValue("isNotifierStarted", true);
 		} else {
-			//btnToggleNotificationService.setText(getString(R.string.startLocationNotifierService));
-			//btnToggleNotificationService.setTextColor(Color.BLACK);
+            // Animation
+			if (mAnimation != null)
+				btnToggleNotificationService.startAnimation(mAnimation);
 			btnToggleNotificationService.setImageResource(R.drawable.start);
-
 	        preferences.setBoooleanSettingsValue("isNotifierStarted", false);
 		}
 		noteText.setText("isNotifierStarted: " + Boolean.toString(preferences.getBooleanSettingsValue("isNotifierStarted")));
 
-//        geocoder = new Geocoder(this);
-//        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-//        staticLocationManager = locationManager;
-//        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-//       telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
-        //locationManager.removeUpdates(this);
-        //performLocation(false);
-        
         LogManager.LogFunctionExit("MyLocationNotifierActivity", "onCreate()");
     }
 
@@ -179,19 +176,14 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 	{    
 		public void onClick(View v) {      
 			boolean isNotifierStarted = preferences.getBooleanSettingsValue("isNotifierStarted");
-			preferences.setBoooleanSettingsValue("isNotifierStarted", !isNotifierStarted);
-			//mytext.setText(getString(R.string.runLocationNotifierService));   
-			noteText.setText("isNotifierStarted: " + Boolean.toString(!isNotifierStarted));
 			
 			if(isNotifierStarted == true){
 				//btnToggleNotificationService.setText(getString(R.string.startLocationNotifierService));
 				//btnToggleNotificationService.setTextColor(Color.BLACK);
+                // Animation
+				if (mAnimation != null)
+					btnToggleNotificationService.startAnimation(mAnimation);
 				btnToggleNotificationService.setImageResource(R.drawable.start);
-
-//				LogManager.LogInfoMsg("MyLocationNotifierActivity", "OnClickListener()", "Broadcasting cancel...");
-//				System.out.println("Broadcasting cancel...");
-//				AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);            
-//				am.cancel(mAlarmSender);	
 
 				LogManager.LogInfoMsg("MyLocationNotifierActivity", "OnClickListener()", "Alarm manager for Location Notifier Service STOPPED.");
 				AlarmManager am = (AlarmManager)getSystemService(ALARM_SERVICE);            
@@ -203,6 +195,9 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 			} else {
 				//btnToggleNotificationService.setText(getString(R.string.stopLocationNotifierService));
 				//btnToggleNotificationService.setTextColor(Color.RED);
+                // Animation
+				if (mAnimation != null)
+					btnToggleNotificationService.startAnimation(mAnimation);
 				btnToggleNotificationService.setImageResource(R.drawable.stop);
 				
 //				Boolean status = LocationNotifierService.startLocationNotifierService(context);
@@ -236,6 +231,9 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
 
 				Toast.makeText(context, "Location notifier service ACTIVATED.", Toast.LENGTH_SHORT).show();
 			}
+			preferences.setBoooleanSettingsValue("isNotifierStarted", !isNotifierStarted);
+			//mytext.setText(getString(R.string.runLocationNotifierService));   
+			noteText.setText("isNotifierStarted: " + Boolean.toString(!isNotifierStarted));
 		}
 	};
 }
