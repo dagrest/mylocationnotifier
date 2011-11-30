@@ -139,6 +139,9 @@ public class MyLocationNotifierActivity extends Activity {// implements Location
         preferences.setBoooleanSettingsValue("isLocationProviderAvailable", false);
         preferences.setStringSettingsValue("locationProviderName", "NONE");
 
+        preferences.setStringSettingsValue("laDeviceId", "004999010640000");
+        preferences.setStringSettingsValue("daDeviceId", "354957030678174");
+
         Utils.setSAPRaananaLocation(preferences);
         
         String locationString = null;

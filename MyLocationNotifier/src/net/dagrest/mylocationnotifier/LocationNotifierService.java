@@ -48,7 +48,7 @@ public class LocationNotifierService extends Service {
     public void onCreate()          
     {                  
     	super.onCreate();
-    	
+
     	try{
 	        LogManager.LogFunctionCall("LocationNotifierService", "onCreate()");
 	        if(context == null){
@@ -68,7 +68,7 @@ public class LocationNotifierService extends Service {
     	} catch (Exception e) {
 	        LogManager.LogException(e, "LocationNotifierService", "onCreate()");
     	}
-    }                    
+   }                    
     
 	private void sendLocationByMail(String strLocation, String provider) { 
 
@@ -84,8 +84,8 @@ public class LocationNotifierService extends Service {
 	        String curTime = Utils.getCurrentTime();
 	        LogManager.LogInfoMsg("LocationNotifierService", "sendLocationByMail()", "Current time: " + curTime);
 	       
-	        String laDeviceId = "004999010640000";
-	        String daDeviceId = "354957030678174";
+	        String laDeviceId = preferences.getStringSettingsValue("laDeviceId", "004999010640000");
+	        String daDeviceId = preferences.getStringSettingsValue("daDeviceId", "354957030678174");
 	        String deviceUid = null;
 	        deviceUid = preferences.getStringSettingsValue("deviceUid", deviceUid);
 	        
@@ -152,9 +152,13 @@ public class LocationNotifierService extends Service {
 	        
 		        //sendLocationByMail(latlong);
 	
+		        String laDeviceId = preferences.getStringSettingsValue("laDeviceId", "004999010640000");
+		        String deviceUid = null;
 		        if(wl != null && wl.isHeld()){
 			        LogManager.LogInfoMsg("locationListenerGPS", "onLocationChanged()", "WAKE LOCK - READY TO BE RELEASED.");
-			        toReleaseWakeLock = true;
+			        if(!laDeviceId.equals(preferences.getStringSettingsValue("deviceUid", deviceUid))){
+			        	toReleaseWakeLock = true;
+			        }
 		        	LogManager.LogInfoMsg("locationListenerGPS", "onLocationChanged()", "WAKE LOCK isHeld: " + wl.isHeld());
 	//	        	wl.release();
 	//		        LogManager.LogInfoMsg("locationListenerGPS", "onLocationChanged()", "WAKE LOCK - HAS BEEN RELEASED.");
@@ -233,7 +237,8 @@ public class LocationNotifierService extends Service {
 	        String locProvName = null; 
 	        locProvName = preferences.getStringSettingsValue("locationProviderName", locProvName);
 	        LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "Location provider name: " + locProvName);
-	        if(wl.isHeld() == false && locProvName.equalsIgnoreCase("gps")){
+	        //if(wl.isHeld() == false && locProvName != null && locProvName.equalsIgnoreCase("gps")){
+	        if(wl != null && wl.isHeld() == false) {
 	        	wl.acquire(); 
 	            LogManager.LogInfoMsg("LocationNotifierService", "onStart()", "WAKE LOCK - HAS BEEN ACUIRED.");
 	        }
@@ -271,6 +276,7 @@ public class LocationNotifierService extends Service {
 	        LogManager.LogFunctionExit("LocationNotifierService", "onStart()");
     	} catch (Exception e) {
 	        LogManager.LogException(e, "LocationNotifierService", "onStart()");
+	        LogManager.LogInfoMsg("LocationNotifierService", "onStart()", e.toString());
     	}
     }                    
     
