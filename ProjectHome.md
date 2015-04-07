@@ -1,0 +1,1 @@
+Notifies my location from android device to configured receiver.
